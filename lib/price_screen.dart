@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
 import 'coin_data.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
@@ -13,7 +14,7 @@ class PriceScreen extends StatefulWidget {
 }
 
 class _PriceScreenState extends State<PriceScreen> {
-  String SelectedCurrency = 'USD';
+  String SelectedCurrency = 'AUD';
 
   DropdownButton<String> androidDropDown() {
     List<DropdownMenuItem<String>> dropdownItems = [];
@@ -30,6 +31,7 @@ class _PriceScreenState extends State<PriceScreen> {
         onChanged: (value) {
           setState(() {
             SelectedCurrency = value;
+            getData();
           });
         });
   }
@@ -43,19 +45,26 @@ class _PriceScreenState extends State<PriceScreen> {
     return CupertinoPicker(
       backgroundColor: Colors.lightBlue,
       itemExtent: 32.0,
-      onSelectedItemChanged: null,
+      onSelectedItemChanged: (selectedIndex) {
+        setState(() {
+          SelectedCurrency = currenciesList[selectedIndex];
+          getData();
+        });
+      },
       children: pickerItems,
     );
   }
 
-  String rate = '?';
+  Map<String, String> coinValues = {};
+  bool isWaiting = false;
 
   void getData() async {
+    isWaiting = true;
     try {
-      double data = await CoinData().getCoinData();
-      //13. We can't await in a setState(). So you have to separate it out into two steps.
+      var data = await CoinData().getCoinData(SelectedCurrency);
+      isWaiting = false;
       setState(() {
-        rate = data.toStringAsFixed(1);
+        coinValues = data.toStringAsFixed(1);
       });
     } catch (e) {
       print(e);
@@ -63,10 +72,11 @@ class _PriceScreenState extends State<PriceScreen> {
   }
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     getData();
   }
+
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -76,35 +86,64 @@ class _PriceScreenState extends State<PriceScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Padding(
-            padding: EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
-            child: Card(
-              color: Colors.lightBlueAccent,
-              elevation: 5.0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
-                child: Text(
-                  '1 BTC = $rate EUR',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20.0,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
+          CryptoCard(
+            rate: isWaiting ? '?' : coinValues['BTC'],
+            SelectedCurrency: SelectedCurrency,
+            cryptoCurrency: 'BTC',
+          ),
+          CryptoCard(
+            rate: isWaiting ? '?' : coinValues['ETH'],
+            SelectedCurrency: SelectedCurrency,
+            cryptoCurrency: 'ETH',
+          ),
+          CryptoCard(
+            rate: isWaiting ? '?' : coinValues['LTC'],
+            SelectedCurrency: SelectedCurrency,
+            cryptoCurrency: 'LTC',
           ),
           Container(
-              height: 150.0,
-              alignment: Alignment.center,
-              padding: EdgeInsets.only(bottom: 30.0),
-              color: Colors.lightBlue,
-              child: Platform.isIOS ? iOSPicker() : androidDropDown(),
+            height: 150.0,
+            alignment: Alignment.center,
+            padding: EdgeInsets.only(bottom: 30.0),
+            color: Colors.lightBlue,
+            child: Platform.isIOS ? iOSPicker() : androidDropDown(),
           )
         ],
+      ),
+    );
+  }
+}
+
+class CryptoCard extends StatelessWidget {
+  const CryptoCard(
+      {Key key, this.rate, this.SelectedCurrency, this.cryptoCurrency})
+      : super(key: key);
+
+  final String rate;
+  final String SelectedCurrency;
+  final String cryptoCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
+      child: Card(
+        color: Colors.lightBlueAccent,
+        elevation: 5.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
+          child: Text(
+            '1 $cryptoCurrency= $rate $SelectedCurrency',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20.0,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
